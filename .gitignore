@@ -1,0 +1,11 @@
+# Ignore local terraform files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+crash.log
+.DS_Store
+.idea/
+.vscode/
+

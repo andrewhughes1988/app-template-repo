@@ -1,0 +1,2 @@
+# Lock CI/CD pipeline stubs to platform admins
+.github/workflows/**   @your-org/cloud-platform-admins
