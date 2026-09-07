@@ -1,54 +1,109 @@
-# Application Example Repository (`app-example-001`)
+# Application Golden Template Repository (`app-template-repo`)
 
-This repository serves as a **Golden Template and Reference Implementation** for application engineering teams deploying cloud-native microservices into enterprise Azure Landing Zones.
+This repository is the official **Golden Template and Reference Implementation** for application engineering teams deploying cloud-native payloads into enterprise Azure Landing Zones.
+
+It is designed to be configured as a **GitHub Template Repository**. When a new microservice or application is spun up, developers create their dedicated repository (e.g., `app-order-service`, `app-payments`) directly from this template.
 
 ---
 
 ## Architectural Role: Payload vs. Platform
 
-In this architecture, application teams own the **Application Payload**, while Platform Ops owns the **Hosting Infrastructure**:
+In this architecture, application teams own the **Application Payload**, while Platform Operations owns the **Hosting Infrastructure**:
 
 ```
 +-------------------------------------------------------------+
-| PLATFORM OPS (azure-platform-core)                          |
-|  - Provisions: CAE "cae-shared-dev" in Spoke VNet           |
-|  - State: compute/cae/dev.tfstate                           |
+| PLATFORM OPERATIONS (azure-platform-core)                  |
+|  - Provisions: CAE "cae-shared-dev-eastus" in Spoke VNet    |
+|  - Manages: Subnets, ASEv3, Private DNS, Firewalls          |
+|  - State: compute/container-app-environments/dev.tfstate    |
 +------------------------------+------------------------------+
                                | Discovered via Azure ARM API
                                v
 +-------------------------------------------------------------+
-| APP TEAM (app-example-001)                                  |
+| APPLICATION TEAM (app-<name> vended from this template)    |
 |  - Deploys: Container App "ca-order-service-dev"            |
 |  - Owns: Replicas, scaling rules, container images, ingress |
-|  - State: app-example-001/dev.tfstate                       |
+|  - State: app-<name>/dev.tfstate (isolated container blob)   |
 +-------------------------------------------------------------+
 ```
 
-### Key Benefits:
-1. **Zero State Collisions**: This repo maintains its own isolated `.tfstate` blob. The app team can deploy 50 times a day without locking platform state or other application states.
-2. **Contract-Driven Binding**: The app binds to the platform's Container App Environment using **Azure ARM Native Data Sources (`data "azurerm_container_app_environment"`)**. No platform state files are read.
-3. **Inherited Enterprise Security**: CI/CD runs using the standardized pipeline in [`platform-deployment-cicd`](../platform-deployment-cicd) with cryptographic Azure OIDC claim verification.
+### Key Architectural Benefits:
+1. **Zero State Collisions**: This repo maintains its own isolated `.tfstate` blob. The application team can deploy dozens of times a day without locking platform state files or colliding with other application teams.
+2. **Contract-Driven Binding**: The app binds to platform infrastructure using **Azure ARM Native Data Sources (`data "azurerm_container_app_environment"`)**. No platform state files are read or exposed (`terraform_remote_state` is eliminated).
+3. **Inherited Enterprise Security**: CI/CD runs via the standardized reusable pipeline in [`platform-deployment-cicd`](https://github.com/andrewhughes1988/platform-deployment-cicd) with cryptographic Azure OIDC claim verification.
 
 ---
 
 ## Repository Structure
 
 ```
-app-example-001/
+app-template-repo/
 ├── .github/
-│   ├── workflows/deploy.yml     # 15-line caller stub pointing to central CI/CD
-│   └── CODEOWNERS               # Locks .github/ to Platform Admins
+│   ├── workflows/deploy.yml     # 25-line caller stub invoking central CI/CD
+│   └── CODEOWNERS               # Locks .github/ to Platform Admins (@andrewhughes1988)
 ├── backend.tf                   # Parameter-less azurerm backend
-├── versions.tf                  # Provider constraints
-├── data.tf                      # Discovers platform-managed CAE
+├── versions.tf                  # Provider constraints (azurerm ~> 3.100)
+├── data.tf                      # Discovers platform-managed CAE via ARM data source
 ├── main.tf                      # Provisions azurerm_container_app
-├── variables.tf
-├── outputs.tf
+├── variables.tf                 # Application payload variables
+├── outputs.tf                   # FQDN, app ID, and identity outputs
 ├── backend/
-│   └── dev.backend.tfvars       # Independent state: app-example-001/dev.tfstate
+│   └── dev.backend.tfvars       # State config: app-template-repo/dev.tfstate
 └── environments/
     └── dev.tfvars               # Application-level runtime variables
 ```
+
+---
+
+## How to Vend a New Application Repository
+
+When an application team needs to spin up a new service:
+
+### 1. Create Repository from Template
+1. On GitHub, navigate to [`app-template-repo`](https://github.com/andrewhughes1988/app-template-repo).
+2. Click **"Use this template"** &rarr; **"Create a new repository"**.
+3. Name the repository following organizational naming conventions (e.g., `app-order-service`).
+
+### 2. Customize Application Variables
+In the new repository:
+1. Update `backend/dev.backend.tfvars`:
+   ```hcl
+   key = "app-order-service/dev.tfstate"
+   ```
+2. Update `environments/dev.tfvars`:
+   ```hcl
+   app_name        = "order-service"
+   container_image = "mcr.microsoft.com/k8se/quickstart:latest"
+   ```
+
+---
+
+## The 2-Step Platform Onboarding Runbook
+
+To maintain governance and security without GitHub Enterprise:
+
+### Step 1: Configure GitHub Branch & Environment Protection
+In the newly created repository:
+1. Go to **Settings** &rarr; **Branches** &rarr; **Add branch protection rule** for `main`:
+   - [x] **Require a pull request before merging**
+   - [x] **Require review from Code Owners** *(Enforces `.github/CODEOWNERS` so developers cannot alter `.github/workflows/deploy.yml` without platform approval)*
+   - [x] **Require status checks to pass before merging** (Select: `Validate & Plan`)
+2. Go to **Settings** &rarr; **Environments**:
+   - Create environment `prod`.
+   - Add **Required reviewers** (e.g., Lead Developer + Platform Ops). Approvals are evaluated directly in this repository—central CI/CD admins are not spammed for other teams' deployments.
+
+### Step 2: Register Azure Entra ID Federated Credential
+To allow the new repository to authenticate to Azure via OIDC, Platform Ops adds a Federated Identity Credential to the application's Azure App Registration / Managed Identity:
+
+- **Entity type**: Other
+- **Issuer**: `https://token.actions.githubusercontent.com`
+- **Subject identifier**:
+  ```text
+  repo:andrewhughes1988/app-order-service:job_workflow_ref:andrewhughes1988/platform-deployment-cicd/.github/workflows/terraform-pipeline.yml@refs/heads/main
+  ```
+
+> [!IMPORTANT]
+> **Rogue Repository Defense**: If an unvetted repository attempts to deploy without this credential, Microsoft Entra ID rejects token issuance with `AADSTS70021`. Developers cannot create unauthorized pipelines or bypass security scanning.
 
 ---
 
@@ -74,8 +129,8 @@ terraform apply tfplan
 ## CI/CD Deployment Workflow
 
 Every Pull Request automatically triggers the reusable workflow in `platform-deployment-cicd`:
-- Runs `terraform fmt`, `tflint`, and `trivy`.
-- Authenticates to Azure via OIDC (strictly validated by Azure using the `job_workflow_ref` claim).
+- Runs `terraform fmt`, `tflint`, and `trivy` static analysis.
+- Authenticates to Azure via OIDC (strictly validated by Azure using `job_workflow_ref`).
 - Generates a speculative execution plan and posts it as a PR comment.
-- Merging to `main` executes `terraform apply` with environment approvals.
+- Merging to `main` executes `terraform apply` with environment approval gates.
 

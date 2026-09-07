@@ -1,2 +1,4 @@
-# Lock CI/CD pipeline stubs to repository owner
+# Lock CI/CD pipeline stubs to platform administrators
+# (Update handle to your GitHub user or organization team, e.g. @andrewhughes1988)
 .github/workflows/**   @andrewhughes1988
+
