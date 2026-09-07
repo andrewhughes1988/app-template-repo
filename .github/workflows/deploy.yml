@@ -14,9 +14,8 @@ permissions:
 jobs:
   deploy-app:
     uses: andrewhughes1988/platform-deployment-cicd/.github/workflows/terraform-pipeline.yml@main
+    secrets: inherit
     with:
       environment: dev
       working_directory: "."
-      backend_config_file: backend/dev.backend.tfvars
       var_file: environments/dev.tfvars
-
