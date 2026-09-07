@@ -1,2 +1,2 @@
-# Lock CI/CD pipeline stubs to platform admins
-.github/workflows/**   @your-org/cloud-platform-admins
+# Lock CI/CD pipeline stubs to repository owner
+.github/workflows/**   @andrewhughes1988

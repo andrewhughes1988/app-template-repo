@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   deploy-app:
-    uses: your-org/platform-deployment-cicd/.github/workflows/terraform-pipeline.yml@main
+    uses: andrewhughes1988/platform-deployment-cicd/.github/workflows/terraform-pipeline.yml@main
     with:
       environment: dev
       working_directory: "."
