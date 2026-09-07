@@ -19,7 +19,4 @@ jobs:
       working_directory: "."
       backend_config_file: backend/dev.backend.tfvars
       var_file: environments/dev.tfvars
-      azure_client_id: ${{ vars.AZURE_CLIENT_ID_APP_DEV }}
-      azure_tenant_id: ${{ vars.AZURE_TENANT_ID }}
-      azure_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID_APP_DEV }}
 
